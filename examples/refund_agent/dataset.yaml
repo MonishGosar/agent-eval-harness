@@ -1,0 +1,99 @@
+# Goldens for the improved refund agent. expected_tools is the spec, including arguments.
+# An empty expected_tools list means the agent must not call anything.
+cases:
+  - id: full_refund
+    tags: [refund]
+    input: My user id is u_alice. Please refund my headphones.
+    expected_output: >
+      The headphones purchased by u_alice are inside the 30-day window.
+      The refund amount is $80.00. A ticket is open for human approval and no money has moved.
+    expected_tools:
+      - name: get_user_purchase_history
+        arguments: {user_id: u_alice}
+      - name: calculate_refund
+        arguments: {user_id: u_alice, item: headphones}
+      - name: issue_refund_ticket
+        arguments: {user_id: u_alice, items: [headphones], amount: 80.0}
+
+  - id: partial_refund
+    tags: [refund]
+    input: My user id is u_bob. Refund only the mouse. I am keeping the laptop sleeve.
+    expected_output: >
+      Only the mouse is refunded, for $25.00. The laptop sleeve stays.
+      A ticket is open for human approval of the mouse only.
+    expected_tools:
+      - name: get_user_purchase_history
+        arguments: {user_id: u_bob}
+      - name: calculate_refund
+        arguments: {user_id: u_bob, item: mouse}
+      - name: issue_refund_ticket
+        arguments: {user_id: u_bob, items: [mouse], amount: 25.0}
+
+  - id: policy_question
+    tags: [info]
+    input: What is your refund policy? I am not asking for a refund.
+    expected_output: >
+      Purchases can be refunded within 30 days. Only purchased, requested items qualify.
+      No refund was issued and no ticket was opened.
+    expected_tools: []
+
+  - id: unknown_user
+    tags: [refund]
+    input: My user id is u_dana. Refund my headphones.
+    expected_output: >
+      u_dana is not a known customer, so no purchase can be refunded and no ticket is opened.
+    expected_tools:
+      - name: get_user_purchase_history
+        arguments: {user_id: u_dana}
+
+  - id: out_of_window
+    tags: [refund]
+    input: My user id is u_cara. I want to refund my monitor.
+    expected_output: >
+      The monitor was purchased outside the 30-day window, so it is not refundable and no ticket is opened.
+    expected_tools:
+      - name: get_user_purchase_history
+        arguments: {user_id: u_cara}
+
+  - id: mixed_eligibility
+    tags: [refund]
+    input: My user id is u_alice. Refund my headphones and my keyboard.
+    expected_output: >
+      The headphones are inside the 30-day window and are refunded for $80.00.
+      The keyboard is outside the window and is not refunded.
+      A ticket for the headphones waits for human approval.
+    expected_tools:
+      - name: get_user_purchase_history
+        arguments: {user_id: u_alice}
+      - name: calculate_refund
+        arguments: {user_id: u_alice, item: headphones}
+      - name: issue_refund_ticket
+        arguments: {user_id: u_alice, items: [headphones], amount: 80.0}
+
+  - id: never_purchased
+    tags: [refund]
+    input: My user id is u_alice. Refund the tablet I bought.
+    expected_output: >
+      u_alice never purchased a tablet, so nothing is refunded and no ticket is opened.
+    expected_tools:
+      - name: get_user_purchase_history
+        arguments: {user_id: u_alice}
+
+  - id: followup_refund
+    tags: [refund, multi-turn]
+    turns:
+      - role: user
+        content: How long is the refund window?
+      - role: assistant
+        content: Purchases can be refunded within 30 days. Which item should I look up, and what is your user id?
+    input: Please refund my headphones. My user id is u_alice.
+    expected_output: >
+      The headphones purchased by u_alice are inside the 30-day window.
+      The refund amount is $80.00. A ticket is open for human approval and no money has moved.
+    expected_tools:
+      - name: get_user_purchase_history
+        arguments: {user_id: u_alice}
+      - name: calculate_refund
+        arguments: {user_id: u_alice, item: headphones}
+      - name: issue_refund_ticket
+        arguments: {user_id: u_alice, items: [headphones], amount: 80.0}
