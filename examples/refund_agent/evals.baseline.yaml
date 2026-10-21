@@ -1,0 +1,65 @@
+version: 1
+project: refund-agent-baseline
+
+adapter:
+  type: langchain
+  target: examples.refund_agent.agent:build_agent
+  kwargs:
+    variant: baseline
+
+judge:
+  provider: openai
+  model: gpt-4.1-mini
+  samples: 3
+  disagreement_spread: 0.25
+  fail_on_disagreement: false
+
+dataset:
+  path: dataset.yaml
+
+run:
+  concurrency: 4
+  cache: true
+  cache_dir: .agent-eval/cache-baseline
+  runs_dir: runs
+  regression_delta: 0.05
+  budget:
+    max_usd: 3.0
+    assume_judge_call_usd: 0.002
+
+metrics:
+  - name: task_completion
+    threshold: 0.7
+    task: >
+      Resolve the customer's refund request under the 30-day policy.
+      Refund only items they asked for and actually purchased inside the window.
+      Open a human-approval ticket only for those items, and do not claim the money moved.
+      Answer policy questions without issuing a refund.
+  - name: step_efficiency
+    threshold: 0.6
+  - name: plan_quality
+    threshold: 0.6
+  - name: plan_adherence
+    threshold: 0.6
+  - name: tool_correctness
+    threshold: 1.0
+    exact_match: true
+    consider_ordering: true
+    input_parameters: true
+  - name: argument_correctness
+    threshold: 0.7
+  - name: answer_correctness
+    type: geval
+    threshold: 0.7
+    criteria: >
+      The actual output reaches the same logical conclusion as the expected output
+      on eligibility, which items are refunded, the amount, and whether a human
+      still has to approve a ticket. Wording may differ.
+    evaluation_params:
+      - input
+      - actual_output
+      - expected_output
+  - name: ticket_gate
+    type: custom
+    target: examples.refund_agent.metrics:build
+    threshold: 1.0
